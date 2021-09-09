@@ -12,9 +12,9 @@ Postman: https://documenter.getpostman.com/view/15653942/U16jLjqv
 три переменные среды: SPRING_DATASOURCE_URL, SPRING_DATASOURCE_USERNAME, SPRING_DATASOURCE_PASSWORD. Это URL
 БД, логин и пароль соответственно. Их можно поменять на ваши значения.
 
-Запуск только с помощью gradle:
+Запуск с помощью gradle:
 
-- ``./gradlew bootRun`` or ``gradle bootRun``
+- ``./gradlew bootRun`` или ``gradle bootRun``
 
 **Проблема:**
 
