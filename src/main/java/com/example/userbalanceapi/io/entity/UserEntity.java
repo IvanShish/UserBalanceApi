@@ -42,8 +42,7 @@ public class UserEntity {
     @Column(name = "balance")
     private Double balance;
 
-    public UserEntity(String id, String firstName, String lastName, String email, String encryptedPassword) {
-        this.id = id;
+    public UserEntity(String firstName, String lastName, String email, String encryptedPassword) {
         this.firstName = firstName;
         this.lastName = lastName;
         this.email = email;

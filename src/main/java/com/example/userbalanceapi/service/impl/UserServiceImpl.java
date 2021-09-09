@@ -1,6 +1,8 @@
 package com.example.userbalanceapi.service.impl;
 
+import com.example.userbalanceapi.io.entity.TransactionEntity;
 import com.example.userbalanceapi.io.entity.UserEntity;
+import com.example.userbalanceapi.io.repository.TransactionRepository;
 import com.example.userbalanceapi.io.repository.UserRepository;
 import com.example.userbalanceapi.service.UserService;
 import com.example.userbalanceapi.ui.model.request.UserDetailsRequestModel;
@@ -12,8 +14,10 @@ import org.springframework.data.domain.Pageable;
 import org.springframework.http.HttpStatus;
 import org.springframework.security.crypto.bcrypt.BCryptPasswordEncoder;
 import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Transactional;
 import org.springframework.web.server.ResponseStatusException;
 
+import java.sql.Timestamp;
 import java.util.List;
 
 @Service
@@ -21,6 +25,9 @@ public class UserServiceImpl implements UserService {
 
     @Autowired
     UserRepository userRepository;
+
+    @Autowired
+    TransactionRepository transactionRepository;
 
     @Autowired
     BCryptPasswordEncoder bCryptPasswordEncoder;
@@ -72,7 +79,8 @@ public class UserServiceImpl implements UserService {
     }
 
     @Override
-    public double addBalance(String userId, Double value) {
+    @Transactional
+    public Double addBalance(String userId, Double value) {
         UserEntity userEntity = userRepository.findById(userId)
                 .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "Error: User with ID: " + userId + " not found"));
 
@@ -87,11 +95,15 @@ public class UserServiceImpl implements UserService {
             userEntity.setBalance(currentBalance + value);
         }
 
+        TransactionEntity transaction = new TransactionEntity(userId, value, new Timestamp(System.currentTimeMillis()), "Add balance");
+        transactionRepository.save(transaction);
+
         return userRepository.save(userEntity).getBalance();
     }
 
     @Override
-    public double subtractBalance(String userId, Double value) {
+    @Transactional
+    public Double subtractBalance(String userId, Double value) {
         UserEntity userEntity = userRepository.findById(userId)
                 .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "Error: User with ID: " + userId + " not found"));
 
@@ -103,14 +115,21 @@ public class UserServiceImpl implements UserService {
         if (currentBalance == null) {
             throw new ResponseStatusException(HttpStatus.UNPROCESSABLE_ENTITY, "Error: User balance is null now");
         }
+        else if (currentBalance - value < 0.0) {
+            throw new ResponseStatusException(HttpStatus.UNPROCESSABLE_ENTITY,
+                    "Error: The balance on the account of the user with the ID: " + userId + " is not enough");
+        }
 
         userEntity.setBalance(currentBalance - value);
+
+        TransactionEntity transaction = new TransactionEntity(userId, -value, new Timestamp(System.currentTimeMillis()), "Subtract balance");
+        transactionRepository.save(transaction);
 
         return userRepository.save(userEntity).getBalance();
     }
 
     @Override
-    public double getUserBalance(String userId) {
+    public Double getUserBalance(String userId) {
         UserEntity userEntity = userRepository.findById(userId)
                 .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "Error: User with ID: " + userId + " not found"));
 
@@ -118,6 +137,7 @@ public class UserServiceImpl implements UserService {
     }
 
     @Override
+    @Transactional
     public void transferBalance(String userIdFrom, String userIdTo, Double value) {
         UserEntity userEntityFrom = userRepository.findById(userIdFrom)
                 .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "Error: User with ID: " + userIdFrom + " not found"));
@@ -136,7 +156,7 @@ public class UserServiceImpl implements UserService {
         }
         else if (currentBalanceUserFrom - value < 0.0) {
             throw new ResponseStatusException(HttpStatus.UNPROCESSABLE_ENTITY,
-                    "The balance on the account of the user with the ID: " + userIdFrom + " is not enough. Transfer rejected");
+                    "Error: The balance on the account of the user with the ID: " + userIdFrom + " is not enough. Transfer rejected");
         }
 
         Double currentBalanceUserTo = userEntityTo.getBalance();
@@ -148,7 +168,22 @@ public class UserServiceImpl implements UserService {
         }
 
         userEntityFrom.setBalance(currentBalanceUserFrom - value);
+
+        TransactionEntity transactionFrom = new TransactionEntity(userIdFrom, -value,
+                new Timestamp(System.currentTimeMillis()), "Transfer balance to user with ID: " + userIdTo);
+        transactionRepository.save(transactionFrom);
+        TransactionEntity transactionTo = new TransactionEntity(userIdTo, value,
+                new Timestamp(System.currentTimeMillis()), "Get balance from user with ID: " + userIdFrom);
+        transactionRepository.save(transactionTo);
+
         userRepository.save(userEntityFrom);
         userRepository.save(userEntityTo);
+    }
+
+    @Override
+    public List<TransactionEntity> getStatement(String userId, int page, int limit) {
+        Pageable pageableRequest = PageRequest.of(page, limit);
+        Page<TransactionEntity> transactionEntityPage = transactionRepository.findAllByUserId(userId, pageableRequest);
+        return transactionEntityPage.getContent();
     }
 }

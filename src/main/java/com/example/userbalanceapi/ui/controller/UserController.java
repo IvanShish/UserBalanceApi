@@ -1,11 +1,13 @@
 package com.example.userbalanceapi.ui.controller;
 
+import com.example.userbalanceapi.io.entity.TransactionEntity;
 import com.example.userbalanceapi.io.entity.UserEntity;
 import com.example.userbalanceapi.service.UserService;
 import com.example.userbalanceapi.ui.model.request.FundsTransferRequestModel;
 import com.example.userbalanceapi.ui.model.request.UserDetailsRequestModel;
 import com.example.userbalanceapi.ui.model.response.UserBalanceResponse;
 import com.example.userbalanceapi.ui.model.response.UserRest;
+import com.example.userbalanceapi.ui.model.response.UserTransactionsResponse;
 import org.springframework.beans.BeanUtils;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.http.MediaType;
@@ -79,14 +81,14 @@ public class UserController {
 
     @PatchMapping(path = "/{id}/balance/add", consumes = {MediaType.APPLICATION_XML_VALUE, MediaType.APPLICATION_JSON_VALUE})
     public ResponseEntity<?> addUserBalance(@PathVariable String id, @RequestBody UserDetailsRequestModel userDetails) {
-        double newBalance = userService.addBalance(id, userDetails.getBalance());
+        Double newBalance = userService.addBalance(id, userDetails.getBalance());
 
         return ResponseEntity.ok().body("Balance of the user with ID: " + id + " now " + newBalance);
     }
 
     @PatchMapping(path = "/{id}/balance/subtract", consumes = {MediaType.APPLICATION_XML_VALUE, MediaType.APPLICATION_JSON_VALUE})
     public ResponseEntity<?> subtractUserBalance(@PathVariable String id, @RequestBody UserDetailsRequestModel userDetails) {
-        double newBalance = userService.subtractBalance(id, userDetails.getBalance());
+        Double newBalance = userService.subtractBalance(id, userDetails.getBalance());
 
         return ResponseEntity.ok().body("Balance of the user with ID: " + id + " now " + newBalance);
     }
@@ -109,5 +111,13 @@ public class UserController {
         return ResponseEntity.ok().body("Balance of the user with ID: " + id + " now " + userService.getUserBalance(id) +
                 "\nBalance of the user with ID: " + fundsTransfer.getUserIdToTransfer() +
                 " now " + userService.getUserBalance(fundsTransfer.getUserIdToTransfer()));
+    }
+
+    @GetMapping(path = "/{id}/balance/statement", produces = {MediaType.APPLICATION_XML_VALUE, MediaType.APPLICATION_JSON_VALUE})
+    public UserTransactionsResponse getStatement(@PathVariable String id, @RequestParam(value = "page", defaultValue = "0") int page,
+                                          @RequestParam(value = "limit", defaultValue = "5") int limit) {
+
+        List<TransactionEntity> transactions = userService.getStatement(id, page, limit);
+        return new UserTransactionsResponse(userService.getUserBalance(id), transactions);
     }
 }
